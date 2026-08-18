@@ -1,0 +1,8 @@
+# Local runtime config (may contain OPENSKY_TOKEN). Ship config.env.example.
+config.env
+
+data/aircraft.json
+data/last-error.log
+data/*.tmp
+*.tmp
+/tmp-frame.png

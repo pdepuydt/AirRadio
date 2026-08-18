@@ -1,0 +1,12 @@
+[Unit]
+Description=AirRadio map refresh timer
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=25s
+AccuracySec=2s
+Persistent=false
+Unit=airradio-map.service
+
+[Install]
+WantedBy=timers.target

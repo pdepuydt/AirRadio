@@ -1,0 +1,20 @@
+[Unit]
+Description=AirRadio map fetch and render
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Environment=AIRRADIO_ROOT=/opt/airradio
+WorkingDirectory=/opt/airradio
+StandardOutput=journal
+StandardError=journal
+ExecStart=/opt/airradio/scripts/update-map.sh
+Nice=10
+TimeoutStartSec=90
+# Always succeed from systemd's point of view; scripts log and keep last frame.
+SuccessExitStatus=0
+
+[Install]
+WantedBy=multi-user.target

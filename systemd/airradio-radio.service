@@ -1,0 +1,19 @@
+[Unit]
+Description=AirRadio HDMI internet radio
+After=network-online.target sound.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=pdepuydt
+Group=audio
+SupplementaryGroups=audio
+Environment=AIRRADIO_ROOT=/opt/airradio
+ExecStart=/opt/airradio/scripts/radio-start.sh
+Restart=always
+RestartSec=5
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

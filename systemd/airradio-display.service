@@ -1,0 +1,25 @@
+[Unit]
+Description=AirRadio HDMI framebuffer display (holds fbi)
+After=local-fs.target
+# Picture stays only while fbi holds the vc4 DRM VT.
+
+[Service]
+Type=simple
+User=root
+Environment=AIRRADIO_ROOT=/opt/airradio
+WorkingDirectory=/opt/airradio
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+TTYPath=/dev/tty1
+TTYReset=no
+TTYVHangup=no
+ExecStartPre=-/usr/bin/pkill -f airradio-slot-a
+ExecStart=/opt/airradio/scripts/display-hold.sh
+Restart=always
+RestartSec=2
+KillMode=mixed
+Nice=10
+
+[Install]
+WantedBy=multi-user.target
