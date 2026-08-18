@@ -50,7 +50,12 @@ if ! jq -r \
     '
     def trim: gsub("^\\s+|\\s+$";"");
     def safe: gsub("[^A-Za-z0-9 ]"; "") | trim;
-    ($lamax - $lamin) as $dlat
+    # Web Mercator Y — Google Static Maps / terrain tiles.
+    def merc_y:
+      ((. * 0.017453292519943295 / 2) + 0.7853981633974483) as $a
+      | (($a | sin) / ($a | cos)) | log;
+    ($lamax | merc_y) as $my0
+    | ($lamin | merc_y) as $my1
     | ($lomax - $lomin) as $dlon
     | (($lamin + $lamax) / 2) as $clat
     | (($lomin + $lomax) / 2) as $clon
@@ -63,7 +68,8 @@ if ! jq -r \
         lon: .[5],
         lat: .[6],
         alt: .[7],
-        ground: .[9]
+        ground: .[8],
+        vrate: .[11]
       })
     | map(select(
         (.lon | type) == "number"
@@ -87,24 +93,35 @@ if ! jq -r \
        elif $ft < 25000 then "#FFE14A"
        else "#7FD4FF" end) as $color
     | ((.lon - $lomin) / $dlon * $w | floor) as $x
-    | (($lamax - .lat) / $dlat * $h | floor) as $y
+    | (($my0 - (.lat | merc_y)) / ($my0 - $my1) * $h | floor) as $y
     | ((if .call == "" then .icao else .call end) | safe) as $name
-    | "\($x) \($y) \($color) \($name) \($ft)"
+    | (if (.vrate | type) != "number" then "cr"
+       elif .vrate > 1 then "up"
+       elif .vrate < -1 then "dn"
+       else "cr" end) as $trend
+    | "\($x) \($y) \($color) \($trend) \($name) \($ft)"
     ' "${AIRCRAFT_JSON}" > "${draw_file}"; then
     log_err "jq projection failed; copying bare map"
     cp -f "${MAP_SRC}" "${tmp}" && mv -f "${tmp}" "${FRAME_OUT}"
     exit 0
 fi
 
-args=("${MAP_SRC}" -depth 8 -font "${font}" -pointsize 13 -strokewidth 1)
-while read -r x y color name ft; do
+# Vertical-rate mark in the label (DejaVu). Deadband ±1 m/s ≈ 200 ft/min.
+export LANG="${LANG:-C.UTF-8}"
+args=("${MAP_SRC}" -depth 8 -font "${font}" -pointsize 17 -strokewidth 1)
+while read -r x y color trend name ft; do
     [ -n "${x:-}" ] || continue
     [ -n "${name:-}" ] || name="UNKN"
     [ -n "${ft:-}" ] || ft=0
-    label="${name} ${ft}"
+    case "${trend}" in
+        up) mark="▲" ;;
+        dn) mark="▼" ;;
+        *)  mark="–" ;;
+    esac
+    label="${name} ${mark}${ft}"
     args+=(
         -stroke "#000000" -fill "${color}"
-        -draw "circle ${x},${y} $((x + 5)),${y}"
+        -draw "circle ${x},${y} $((x + 4)),${y}"
         -stroke none -fill "${color}"
         -annotate "+$((x + 8))+$((y - 2))" "${label}"
     )
@@ -116,7 +133,6 @@ if ! im_convert "${args[@]}" "${tmp}"; then
 fi
 
 mv -f "${tmp}" "${FRAME_OUT}"
-publish_slots "${FRAME_OUT}" || log_err "failed to publish display slots"
 trap - EXIT
 rm -f "${draw_file}"
 exit 0

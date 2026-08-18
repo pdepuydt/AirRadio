@@ -1,53 +1,53 @@
 #!/bin/bash
-# Long-running framebuffer viewer. Must stay alive: killing fbi blanks vc4 DRM.
+# Own the HDMI framebuffer: unbind fbcon, blit complete frames to /dev/fb0.
+# No fbi — starting/stopping it left torn or stale pictures on vc4 DRM.
 set -u
 AIRRADIO_ROOT="${AIRRADIO_ROOT:-/opt/airradio}"
 # shellcheck disable=SC1091
 . "${AIRRADIO_ROOT}/scripts/lib.sh"
 
-if [ ! -f "${FRAME_OUT}" ]; then
-    if [ -f "${MAP_SRC}" ]; then
-        cp -f "${MAP_SRC}" "${FRAME_OUT}" || true
-    fi
-fi
+fbcon_bind="/sys/class/vtconsole/vtcon1/bind"
 
-if [ -f "${FRAME_OUT}" ]; then
-    publish_slots "${FRAME_OUT}" || true
-elif [ -f "${MAP_SRC}" ]; then
-    publish_slots "${MAP_SRC}" || true
-else
+unbind_fbcon() {
+    if [ -w "${fbcon_bind}" ]; then
+        echo 0 >"${fbcon_bind}" || true
+    fi
+}
+
+rebind_fbcon() {
+    if [ -w "${fbcon_bind}" ]; then
+        echo 1 >"${fbcon_bind}" || true
+    fi
+}
+
+if [ ! -f "${FRAME_OUT}" ] && [ -f "${MAP_SRC}" ]; then
+    cp -f "${MAP_SRC}" "${FRAME_OUT}" || true
+fi
+if [ ! -f "${FRAME_OUT}" ]; then
     log_err "no map or frame to display"
     exit 1
 fi
 
-tty_dev="/dev/tty${FBI_TTY}"
-if [ -w "${tty_dev}" ]; then
-    setterm --blank 0 --powersave off <"${tty_dev}" >"${tty_dev}" 2>/dev/null || true
-fi
+pkill -x fbi 2>/dev/null || true
+unbind_fbcon
+trap rebind_fbcon EXIT TERM INT
 
-# fbi forks and the parent exits. systemd Type=simple then kills the child
-# and vc4 DRM blanks. Supervise the surviving fbi so the unit stays active.
-fbi_cmd=(fbi -T "${FBI_TTY}" -d "${FB_DEVICE}" -a -noverbose -cachemem 0 -t 8
-    "${SLOT_A}" "${SLOT_B}")
-
-cleanup() {
-    pkill -f "fbi -T ${FBI_TTY} .*airradio-slot-a" 2>/dev/null || true
-}
-trap cleanup EXIT TERM INT
-
-"${fbi_cmd[@]}" &
-fbi_pid=$!
-sleep 1
-if ! kill -0 "${fbi_pid}" 2>/dev/null; then
-    fbi_pid="$(pgrep -n -f "fbi -T ${FBI_TTY} .*airradio-slot-a" || true)"
-fi
-if [ -z "${fbi_pid}" ]; then
-    log_err "fbi failed to start"
+if ! "${AIRRADIO_ROOT}/scripts/blit-frame.sh" "${FRAME_OUT}" "${FB_DEVICE}"; then
+    log_err "initial framebuffer blit failed"
     exit 1
 fi
 
-while kill -0 "${fbi_pid}" 2>/dev/null || pgrep -f "fbi -T ${FBI_TTY} .*airradio-slot-a" >/dev/null; do
-    sleep 2
+last_mtime="$(stat -c %Y "${FRAME_OUT}" 2>/dev/null || echo 0)"
+
+while true; do
+    sleep 1
+    if [ ! -f "${FRAME_OUT}" ]; then
+        continue
+    fi
+    now_mtime="$(stat -c %Y "${FRAME_OUT}" 2>/dev/null || echo 0)"
+    if [ "${now_mtime}" = "${last_mtime}" ]; then
+        continue
+    fi
+    last_mtime="${now_mtime}"
+    "${AIRRADIO_ROOT}/scripts/blit-frame.sh" "${FRAME_OUT}" "${FB_DEVICE}" || log_err "framebuffer blit failed"
 done
-log_err "fbi exited"
-exit 1

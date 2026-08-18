@@ -3,23 +3,15 @@
 AIRRADIO_ROOT="${AIRRADIO_ROOT:-/opt/airradio}"
 # shellcheck disable=SC1091
 . "${AIRRADIO_ROOT}/config.env"
+# Written by fetch-basemap.sh so overlay bounds match the Google image.
+if [ -f "${AIRRADIO_ROOT}/map.extent.env" ]; then
+    # shellcheck disable=SC1091
+    . "${AIRRADIO_ROOT}/map.extent.env"
+fi
 
 DATA_DIR="${AIRRADIO_ROOT}/data"
 AIRCRAFT_JSON="${DATA_DIR}/aircraft.json"
 ERROR_LOG="${DATA_DIR}/last-error.log"
-SLOT_A="${SLOT_A:-/tmp/airradio-slot-a.png}"
-SLOT_B="${SLOT_B:-/tmp/airradio-slot-b.png}"
-
-# fbi on vc4 DRM only keeps the picture while it holds the VT.
-# Publish two slots so a long-running fbi -t can reread without exiting.
-publish_slots() {
-    local src="${1:-${FRAME_OUT}}"
-    if [ ! -f "${src}" ]; then
-        return 1
-    fi
-    cp -f "${src}" "${SLOT_A}.partial.png" && mv -f "${SLOT_A}.partial.png" "${SLOT_A}"
-    cp -f "${src}" "${SLOT_B}.partial.png" && mv -f "${SLOT_B}.partial.png" "${SLOT_B}"
-}
 
 log_err() {
     local line

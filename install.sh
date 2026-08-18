@@ -12,7 +12,7 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y curl jq imagemagick fbi alsa-utils mpv fonts-dejavu-core
+apt-get install -y curl jq imagemagick alsa-utils mpv fonts-dejavu-core gcc
 
 mkdir -p "${DEST}/scripts" "${DEST}/data" "${DEST}/systemd"
 
@@ -25,6 +25,9 @@ fi
 install -m 0755 "${ROOT}/scripts/"*.sh "${DEST}/scripts/"
 # lib.sh is sourced; keep it mode 0644
 install -m 0644 "${ROOT}/scripts/lib.sh" "${DEST}/scripts/lib.sh"
+install -m 0644 "${ROOT}/scripts/rgb24-to-fb16.c" "${DEST}/scripts/rgb24-to-fb16.c"
+cc -O2 -s -o "${DEST}/scripts/rgb24-to-fb16" "${DEST}/scripts/rgb24-to-fb16.c"
+chmod 0755 "${DEST}/scripts/rgb24-to-fb16"
 
 if [ -f "${ROOT}/map.png" ]; then
     install -m 0644 "${ROOT}/map.png" "${DEST}/map.png"

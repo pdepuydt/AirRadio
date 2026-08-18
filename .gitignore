@@ -1,5 +1,7 @@
-# Local runtime config (may contain OPENSKY_TOKEN). Ship config.env.example.
+# Local runtime config (may contain tokens / API keys). Ship config.env.example.
 config.env
+map.extent.env
+scripts/rgb24-to-fb16
 
 data/aircraft.json
 data/last-error.log

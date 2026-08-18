@@ -11,7 +11,4 @@ AIRRADIO_ROOT="${AIRRADIO_ROOT:-/opt/airradio}"
 if [ ! -f "${FRAME_OUT}" ] && [ -f "${MAP_SRC}" ]; then
     cp -f "${MAP_SRC}" "${FRAME_OUT}" || log_err "cannot seed ${FRAME_OUT}"
 fi
-if [ -f "${FRAME_OUT}" ]; then
-    publish_slots "${FRAME_OUT}" || log_err "cannot publish display slots"
-fi
 exit 0
