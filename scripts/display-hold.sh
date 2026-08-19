@@ -32,7 +32,26 @@ pkill -x fbi 2>/dev/null || true
 unbind_fbcon
 trap rebind_fbcon EXIT TERM INT
 
-if ! "${AIRRADIO_ROOT}/scripts/blit-frame.sh" "${FRAME_OUT}" "${FB_DEVICE}"; then
+nowplaying_file="${NOWPLAYING_FILE:-/tmp/airradio-nowplaying.txt}"
+
+read_track() {
+    if [ -f "${nowplaying_file}" ]; then
+        tr -d '\r\n' < "${nowplaying_file}"
+    fi
+}
+
+paint_hud() {
+    "${AIRRADIO_ROOT}/scripts/hud-bars.sh" "${1:-all}" || true
+}
+
+paint() {
+    "${AIRRADIO_ROOT}/scripts/blit-frame.sh" "${FRAME_OUT}" "${FB_DEVICE}" || return 1
+    paint_hud all
+    last_clock="$(date '+%Y-%m-%dT%H:%M')"
+    last_track="$(read_track)"
+}
+
+if ! paint; then
     log_err "initial framebuffer blit failed"
     exit 1
 fi
@@ -45,9 +64,19 @@ while true; do
         continue
     fi
     now_mtime="$(stat -c %Y "${FRAME_OUT}" 2>/dev/null || echo 0)"
-    if [ "${now_mtime}" = "${last_mtime}" ]; then
+    if [ "${now_mtime}" != "${last_mtime}" ]; then
+        last_mtime="${now_mtime}"
+        paint || log_err "framebuffer blit failed"
         continue
     fi
-    last_mtime="${now_mtime}"
-    "${AIRRADIO_ROOT}/scripts/blit-frame.sh" "${FRAME_OUT}" "${FB_DEVICE}" || log_err "framebuffer blit failed"
+    now_clock="$(date '+%Y-%m-%dT%H:%M')"
+    if [ "${now_clock}" != "${last_clock}" ]; then
+        last_clock="${now_clock}"
+        paint_hud top
+    fi
+    now_track="$(read_track)"
+    if [ "${now_track}" != "${last_track}" ]; then
+        last_track="${now_track}"
+        paint_hud bot
+    fi
 done

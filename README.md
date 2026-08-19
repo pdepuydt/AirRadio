@@ -1,4 +1,4 @@
-# AirRadio v0.5
+# AirRadio v0.6
 
 Always-on HDMI companion for a Raspberry Pi Zero W: internet radio on HDMI
 audio, nearby aircraft on a static map via the framebuffer. No Python, no
@@ -20,8 +20,12 @@ On boot:
 1. `mpv` starts the configured stream on the HDMI ALSA device and restarts
    on failure.
 2. A fullscreen static map is written directly to `/dev/fb0` (RGB565).
+   A top bar shows the time and date (once a minute); a bottom ticker
+   shows the station and track when that text changes.
 3. Every 25 s the map service fetches OpenSky traffic in a bounding box,
-   overlays up to 40 airborne callsigns, and refreshes the frame.
+   overlays up to 40 airborne aircraft with IATA origin–destination
+   (`LHR - BRU`) when known, otherwise the callsign, and refreshes the
+   frame.
 4. A failed fetch keeps the last good JSON and the last painted frame.
    Radio and map retry independently.
 
@@ -34,13 +38,15 @@ On boot:
   map.png
   scripts/
     fetch-overlay.sh
+    fetch-routes.sh
     render-map.sh
+    hud-bars.sh
     display-hold.sh
     blit-frame.sh
     rgb24-to-fb16
     update-map.sh
-    display-loop.sh
     radio-start.sh
+    mpv-nowplaying.lua
     generate-placeholder-map.sh
     fetch-basemap.sh
     lib.sh
@@ -117,12 +123,8 @@ Two boxes:
 | `LAMIN` `LAMAX` `LOMIN` `LOMAX` | OpenSky query (~100 km) |
 | `MAP_LAMIN` `MAP_LAMAX` `MAP_LOMIN` `MAP_LOMAX` | Geographic extent of `map.png` (~75 km) |
 
-Projection is linear plate-carrée:
-
-```
-x = (lon - MAP_LOMIN) / (MAP_LOMAX - MAP_LOMIN) * width
-y = (MAP_LAMAX - lat) / (MAP_LAMAX - MAP_LAMIN) * height
-```
+Projection matches Google Static Maps: linear longitude, Web Mercator
+latitude.
 
 `map.png` **must** match the `MAP_*` values. The fetch box can be larger
 so traffic near the edge is already in the last-good file.
@@ -136,8 +138,16 @@ Anonymous access is about 400 requests/day. The 25 s timer is about 3456
 requests/day, so anonymous use will hit HTTP 429; the last good overlay
 stays on screen.
 
-Register at OpenSky, put a Bearer token in `OPENSKY_TOKEN`, and keep
-`POLL_SECONDS` at 25 s (registered allowance is about 4000/day).
+Register at [OpenSky](https://opensky-network.org/login?view=registration),
+open [Account](https://opensky-network.org/my-opensky/account), create an
+API client, and put `clientId` / `clientSecret` in `OPENSKY_CLIENT_ID` and
+`OPENSKY_CLIENT_SECRET`. `fetch-overlay.sh` exchanges those for a Bearer
+token and refreshes it before it expires (~30 min). Keep `POLL_SECONDS`
+at 25 s (registered allowance is about 4000/day).
+
+Do not put a one-shot Bearer token in `OPENSKY_TOKEN` unless you are
+testing — it expires. Username/password basic auth was retired in March
+2026.
 
 The timer interval is **also** hardcoded in
 `/etc/systemd/system/airradio-map.timer` as `OnUnitActiveSec=25s`. If you

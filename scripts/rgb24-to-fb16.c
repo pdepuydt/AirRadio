@@ -1,6 +1,6 @@
-/* Pack RGB24 (R,G,B) into RGB565LE and write a full framebuffer.
- * usage: rgb24-to-fb16 RGB24_PATH OUT_PATH WIDTH HEIGHT STRIDE_BYTES
- * OUT_PATH is /dev/fb0 or a regular file (for checks).
+/* Pack RGB24 (R,G,B) into RGB565LE and write a framebuffer region.
+ * usage: rgb24-to-fb16 RGB24 OUT WIDTH HEIGHT STRIDE [YOFFSET]
+ * YOFFSET is rows from the top when OUT is a framebuffer device.
  */
 #include <errno.h>
 #include <fcntl.h>
@@ -21,8 +21,10 @@ int main(int argc, char **argv)
     int out = -1, rc = 1;
     unsigned y, x;
 
-    if (argc != 6) {
-        fprintf(stderr, "usage: %s RGB24 OUT WIDTH HEIGHT STRIDE\n", argv[0]);
+    unsigned yoff = 0;
+
+    if (argc < 6 || argc > 7) {
+        fprintf(stderr, "usage: %s RGB24 OUT WIDTH HEIGHT STRIDE [YOFFSET]\n", argv[0]);
         return 2;
     }
     in_path = argv[1];
@@ -30,6 +32,8 @@ int main(int argc, char **argv)
     width = (unsigned)strtoul(argv[3], NULL, 10);
     height = (unsigned)strtoul(argv[4], NULL, 10);
     stride = (unsigned)strtoul(argv[5], NULL, 10);
+    if (argc == 7)
+        yoff = (unsigned)strtoul(argv[6], NULL, 10);
     if (width == 0 || height == 0 || stride < width * 2) {
         fprintf(stderr, "bad geometry %ux%u stride %u\n", width, height, stride);
         return 2;
@@ -77,6 +81,10 @@ int main(int argc, char **argv)
     }
     if (out < 0) {
         fprintf(stderr, "open %s: %s\n", out_path, strerror(errno));
+        goto done;
+    }
+    if (yoff > 0 && lseek(out, (off_t)yoff * (off_t)stride, SEEK_SET) < 0) {
+        fprintf(stderr, "lseek %s: %s\n", out_path, strerror(errno));
         goto done;
     }
     n = 0;

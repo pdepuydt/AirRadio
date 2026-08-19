@@ -19,12 +19,16 @@ mkdir -p "${DEST}/scripts" "${DEST}/data" "${DEST}/systemd"
 install -m 0644 "${ROOT}/VERSION" "${DEST}/VERSION"
 install -m 0644 "${ROOT}/config.env.example" "${DEST}/config.env.example"
 if [ ! -f "${DEST}/config.env" ]; then
-    install -m 0644 "${ROOT}/config.env.example" "${DEST}/config.env"
+    install -m 0640 "${ROOT}/config.env.example" "${DEST}/config.env"
 fi
+# Radio unit is User=pdepuydt Group=audio. 0600 root:root makes RADIO_URL unreadable.
+chown root:audio "${DEST}/config.env"
+chmod 0640 "${DEST}/config.env"
 
 install -m 0755 "${ROOT}/scripts/"*.sh "${DEST}/scripts/"
 # lib.sh is sourced; keep it mode 0644
 install -m 0644 "${ROOT}/scripts/lib.sh" "${DEST}/scripts/lib.sh"
+install -m 0644 "${ROOT}/scripts/mpv-nowplaying.lua" "${DEST}/scripts/mpv-nowplaying.lua"
 install -m 0644 "${ROOT}/scripts/rgb24-to-fb16.c" "${DEST}/scripts/rgb24-to-fb16.c"
 cc -O2 -s -o "${DEST}/scripts/rgb24-to-fb16" "${DEST}/scripts/rgb24-to-fb16.c"
 chmod 0755 "${DEST}/scripts/rgb24-to-fb16"

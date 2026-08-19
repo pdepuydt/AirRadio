@@ -71,10 +71,10 @@ label_city "Knokke" 51.3465 3.2875
 
 read -r hx hy < <(proj "${HOME_LAT}" "${HOME_LON}")
 args+=(
-    -stroke "#ff8a3d" -strokewidth 2 -fill none
+    -stroke "#FF0000" -strokewidth 3 -fill none
     -draw "line $((hx - 14)),${hy} $((hx + 14)),${hy}"
     -draw "line ${hx},$((hy - 14)) ${hx},$((hy + 14))"
-    -stroke none -fill "#ff8a3d" -pointsize 14
+    -stroke none -fill "#FF0000" -pointsize 16
     -annotate "+$((hx + 12))+$((hy + 22))" "home"
     -fill "#8ea0b8" -pointsize 16
     -annotate +24+32 "AirRadio  ${MAP_LAMIN}–${MAP_LAMAX}N  ${MAP_LOMIN}–${MAP_LOMAX}E"

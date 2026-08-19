@@ -5,6 +5,8 @@ scripts/rgb24-to-fb16
 
 data/aircraft.json
 data/last-error.log
+data/routes.json
+data/opensky-token.json
 data/*.tmp
 *.tmp
 /tmp-frame.png

@@ -38,6 +38,11 @@ draw_file="$(mktemp /tmp/airradio-draw.XXXXXX)"
 cleanup() { rm -f "${draw_file}" "${tmp}"; }
 trap cleanup EXIT
 
+if [ ! -f "${ROUTES_JSON}" ]; then
+    echo '{}' > "${ROUTES_JSON}"
+    chmod 644 "${ROUTES_JSON}"
+fi
+
 if ! jq -r \
     --argjson w "${width}" \
     --argjson h "${height}" \
@@ -47,14 +52,16 @@ if ! jq -r \
     --argjson lomax "${MAP_LOMAX}" \
     --argjson skip "${skip}" \
     --argjson maxn "${max}" \
+    --slurpfile routes "${ROUTES_JSON}" \
     '
     def trim: gsub("^\\s+|\\s+$";"");
-    def safe: gsub("[^A-Za-z0-9 ]"; "") | trim;
+    def safe: gsub("[^A-Za-z0-9 -]"; "") | gsub(" +"; " ") | trim;
     # Web Mercator Y — Google Static Maps / terrain tiles.
     def merc_y:
       ((. * 0.017453292519943295 / 2) + 0.7853981633974483) as $a
       | (($a | sin) / ($a | cos)) | log;
-    ($lamax | merc_y) as $my0
+    ($routes[0] // {}) as $rt
+    | ($lamax | merc_y) as $my0
     | ($lamin | merc_y) as $my1
     | ($lomax - $lomin) as $dlon
     | (($lamin + $lamax) / 2) as $clat
@@ -89,17 +96,20 @@ if ! jq -r \
     | .[]
     | (.alt // 0) as $altm
     | ($altm * 3.28084 | floor) as $ft
-    | (if $ft < 10000 then "#7CFF6B"
-       elif $ft < 25000 then "#FFE14A"
-       else "#7FD4FF" end) as $color
+    | "#FFEE00" as $color
     | ((.lon - $lomin) / $dlon * $w | floor) as $x
     | (($my0 - (.lat | merc_y)) / ($my0 - $my1) * $h | floor) as $y
-    | ((if .call == "" then .icao else .call end) | safe) as $name
+    | ((.call | trim) as $cs
+       | (if (($rt[$cs].ok // false) == true) and (($rt[$cs].route // "") != "")
+          then $rt[$cs].route
+          elif $cs == "" then .icao
+          else $cs end
+         ) | safe) as $name
     | (if (.vrate | type) != "number" then "cr"
        elif .vrate > 1 then "up"
        elif .vrate < -1 then "dn"
        else "cr" end) as $trend
-    | "\($x) \($y) \($color) \($trend) \($name) \($ft)"
+    | "\($x)\t\($y)\t\($color)\t\($trend)\t\($name)\t\($ft)"
     ' "${AIRCRAFT_JSON}" > "${draw_file}"; then
     log_err "jq projection failed; copying bare map"
     cp -f "${MAP_SRC}" "${tmp}" && mv -f "${tmp}" "${FRAME_OUT}"
@@ -108,8 +118,8 @@ fi
 
 # Vertical-rate mark in the label (DejaVu). Deadband ±1 m/s ≈ 200 ft/min.
 export LANG="${LANG:-C.UTF-8}"
-args=("${MAP_SRC}" -depth 8 -font "${font}" -pointsize 17 -strokewidth 1)
-while read -r x y color trend name ft; do
+args=("${MAP_SRC}" -depth 8 -font "${font}" -pointsize 21 -strokewidth 1)
+while IFS=$'\t' read -r x y color trend name ft; do
     [ -n "${x:-}" ] || continue
     [ -n "${name:-}" ] || name="UNKN"
     [ -n "${ft:-}" ] || ft=0
@@ -126,6 +136,26 @@ while read -r x y color trend name ft; do
         -annotate "+$((x + 8))+$((y - 2))" "${label}"
     )
 done < "${draw_file}"
+
+hx="$(awk -v lon="${HOME_LON}" -v lomin="${MAP_LOMIN}" -v lomax="${MAP_LOMAX}" -v w="${width}" \
+    'BEGIN { printf "%d", (lon - lomin) / (lomax - lomin) * w }')"
+hy="$(awk -v lat="${HOME_LAT}" -v lamin="${MAP_LAMIN}" -v lamax="${MAP_LAMAX}" -v h="${height}" 'BEGIN {
+    pi = atan2(0, -1)
+    latr = lat * pi / 180
+    rmax = lamax * pi / 180
+    rmin = lamin * pi / 180
+    mylat = log(sin(latr)/cos(latr) + 1/cos(latr))
+    mymax = log(sin(rmax)/cos(rmax) + 1/cos(rmax))
+    mymin = log(sin(rmin)/cos(rmin) + 1/cos(rmin))
+    printf "%d", (mymax - mylat) / (mymax - mymin) * h
+}')"
+args+=(
+    -stroke "#FF0000" -strokewidth 3 -fill none
+    -draw "line $((hx - 16)),${hy} $((hx + 16)),${hy}"
+    -draw "line ${hx},$((hy - 16)) ${hx},$((hy + 16))"
+    -stroke none -fill "#FF0000" -pointsize 16
+    -annotate "+$((hx + 14))+$((hy + 24))" "home"
+)
 
 if ! im_convert "${args[@]}" "${tmp}"; then
     log_err "convert failed"

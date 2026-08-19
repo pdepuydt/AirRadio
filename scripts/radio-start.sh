@@ -16,4 +16,5 @@ exec mpv --no-video --ao=alsa \
     --loop-playlist=inf \
     --cache=yes --cache-secs=10 \
     --network-timeout=15 \
+    --script="${AIRRADIO_ROOT}/scripts/mpv-nowplaying.lua" \
     "${RADIO_URL}"

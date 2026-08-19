@@ -11,6 +11,7 @@ fi
 
 DATA_DIR="${AIRRADIO_ROOT}/data"
 AIRCRAFT_JSON="${DATA_DIR}/aircraft.json"
+ROUTES_JSON="${DATA_DIR}/routes.json"
 ERROR_LOG="${DATA_DIR}/last-error.log"
 
 log_err() {

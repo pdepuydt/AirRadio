@@ -30,7 +30,7 @@ center_lat="${HOME_LAT}"
 center_lon="${HOME_LON}"
 
 # Quiet Google's default type: no road shields, muted city names, thin halo.
-if ! curl -fsSL --max-time 60 -A "AirRadio/0.5" -o "${src}" --get \
+if ! curl -fsSL --max-time 60 -A "AirRadio/0.6" -o "${src}" --get \
     "https://maps.googleapis.com/maps/api/staticmap" \
     --data-urlencode "center=${center_lat},${center_lon}" \
     --data-urlencode "zoom=${zoom}" \
@@ -99,10 +99,10 @@ im() { if command -v convert >/dev/null 2>&1; then convert "$@"; else magick con
 
 # Gentle dim only — Google terrain is already calm; do not crush colour.
 if ! im "${src}" -resize "${width}x${height}!" -depth 8 -modulate 31,90,100 \
-    -stroke "#ff8a3d" -strokewidth 2 -fill none \
-    -draw "line $((hx - 14)),${hy} $((hx + 14)),${hy}" \
-    -draw "line ${hx},$((hy - 14)) ${hx},$((hy + 14))" \
-    -stroke none -fill "#ff8a3d" -font "${font}" -pointsize 14 \
+    -stroke "#FF0000" -strokewidth 3 -fill none \
+    -draw "line $((hx - 16)),${hy} $((hx + 16)),${hy}" \
+    -draw "line ${hx},$((hy - 16)) ${hx},$((hy + 16))" \
+    -stroke none -fill "#FF0000" -font "${font}" -pointsize 16 \
     -annotate "+$((hx + 12))+$((hy + 22))" "home" \
     "${tmp}"; then
     echo "Google map convert failed" >&2

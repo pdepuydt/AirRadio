@@ -6,6 +6,7 @@ AIRRADIO_ROOT="${AIRRADIO_ROOT:-/opt/airradio}"
 . "${AIRRADIO_ROOT}/scripts/lib.sh"
 
 "${AIRRADIO_ROOT}/scripts/fetch-overlay.sh" || log_err "fetch-overlay.sh exited $?"
+"${AIRRADIO_ROOT}/scripts/fetch-routes.sh" || log_err "fetch-routes.sh exited $?"
 "${AIRRADIO_ROOT}/scripts/render-map.sh" || log_err "render-map.sh exited $?"
 
 if [ ! -f "${FRAME_OUT}" ] && [ -f "${MAP_SRC}" ]; then
